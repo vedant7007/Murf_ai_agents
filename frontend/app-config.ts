@@ -20,22 +20,22 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'LiveKit',
-  pageTitle: 'LiveKit Voice Agent',
-  pageDescription: 'A voice agent built with LiveKit',
+  companyName: "Prashant's Coffee Shop",
+  pageTitle: "Prashant's Coffee Shop - AI Barista",
+  pageDescription: 'Order coffee from your friendly AI barista Prashant',
 
   supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
   logo: '/lk-logo.svg',
-  accent: '#002cf2',
+  accent: '#6F4E37',
   logoDark: '/lk-logo-dark.svg',
-  accentDark: '#1fd5f9',
-  startButtonText: 'Start call',
+  accentDark: '#A67C52',
+  startButtonText: 'Talk to Prashant',
 
   // for LiveKit Cloud Sandbox
   sandboxId: undefined,
-  agentName: undefined,
+  agentName: 'Prashant',
 };

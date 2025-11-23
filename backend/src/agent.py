@@ -12,8 +12,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -22,32 +22,110 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+# Coffee Shop Menu
+MENU = {
+    "espresso": 3.00,
+    "americano": 3.50,
+    "cappuccino": 4.50,
+    "latte": 4.50,
+    "mocha": 5.00,
+    "cold_brew": 4.00,
+}
+
+current_order = {}
+
+
+@function_tool
+async def add_to_order(context: RunContext, item: str, size: str = "") -> str:
+    """Add a coffee drink to the customer's order. IMPORTANT: Always confirm the size with the customer before calling this function.
+
+    Args:
+        item: The coffee drink name (e.g., 'latte', 'cappuccino')
+        size: Size of the drink ('small', 'medium', 'large') - REQUIRED, do not use default
+    """
+    item = item.lower().replace(" ", "_")
+
+    if item not in MENU:
+        available_items = [i.replace('_', ' ').title() for i in MENU.keys()]
+        return f"Sorry, we don't have {item.replace('_', ' ')}. We have: {', '.join(available_items)}"
+
+    # Validate size is provided
+    valid_sizes = ["small", "medium", "large"]
+    if not size or size.lower() not in valid_sizes:
+        return f"I need to know what size you'd like for your {item.replace('_', ' ')}. Would you like a small, medium, or large?"
+
+    size = size.lower()
+    order_id = len(current_order) + 1
+    current_order[order_id] = {"item": item, "size": size, "price": MENU[item]}
+    return f"Great! I've added a {size} {item.replace('_', ' ')} to your order for ${MENU[item]:.2f}."
+
+
+@function_tool
+async def get_menu(context: RunContext) -> str:
+    """Get the coffee shop menu with prices."""
+    menu_items = []
+    for item, price in MENU.items():
+        menu_items.append(f"{item.replace('_', ' ').title()} for ${price:.2f}")
+
+    menu_text = "Here's our menu: " + ", ".join(menu_items[:-1])
+    if len(menu_items) > 1:
+        menu_text += f", and {menu_items[-1]}."
+    else:
+        menu_text += f"{menu_items[0]}."
+    menu_text += " All drinks are available in small, medium, or large sizes."
+    return menu_text
+
+
+@function_tool
+async def get_order(context: RunContext) -> str:
+    """Get the current order summary with total price."""
+    if not current_order:
+        return "Your cart is empty. Would you like to order something?"
+
+    summary = "Your Order:\n"
+    total = 0
+    for order_id, order in current_order.items():
+        summary += f"{order_id}. {order['size']} {order['item']} - ${order['price']:.2f}\n"
+        total += order['price']
+    summary += f"\nTotal: ${total:.2f}"
+    return summary
+
+
+@function_tool
+async def confirm_order(context: RunContext) -> str:
+    """Confirm and place the customer's order."""
+    if not current_order:
+        return "You haven't added anything to your order yet."
+
+    order_count = len(current_order)
+    total = sum(item['price'] for item in current_order.values())
+    current_order.clear()
+    return f"Perfect! Your order of {order_count} item(s) totaling ${total:.2f} has been placed. It will be ready in about 5 minutes. Thank you!"
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+            instructions="""You are a friendly and helpful coffee shop barista named Prashant. Your goal is to provide excellent customer service.
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+            IMPORTANT RULES:
+            1. ALWAYS greet customers warmly when they first connect
+            2. Offer to show the menu if they seem unsure what to order
+            3. When a customer asks about the menu, use the get_menu tool to show all available drinks
+            4. CRITICAL: ALWAYS ask for the drink size (small, medium, or large) if the customer doesn't specify it
+            5. Never add items to an order without confirming the size first
+            6. After adding items, offer to add more or proceed to checkout
+            7. Be conversational and natural - this is a voice interaction
+
+            WORKFLOW:
+            - Customer mentions a drink without size → Ask "What size would you like - small, medium, or large?"
+            - Customer provides both drink and size → Add to order immediately
+            - Customer asks "what do you have" or "menu" → Use get_menu tool
+            - Customer says "that's all" or "checkout" → Use get_order to summarize, then confirm_order
+
+            Keep responses brief, friendly, and conversational for natural speech.""",
+            tools=[add_to_order, get_menu, get_order, confirm_order]
+        )
 
 
 def prewarm(proc: JobProcess):
@@ -56,50 +134,24 @@ def prewarm(proc: JobProcess):
 
 async def entrypoint(ctx: JobContext):
     # Logging setup
-    # Add any other context you want in all log entries here
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+        llm=google.LLM(model="gemini-2.5-flash"),
         tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            voice="en-US-matthew", 
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True
+        ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -113,27 +165,20 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
         agent=Assistant(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+    cli.run_app(WorkerOptions(
+        entrypoint_fnc=entrypoint,
+        prewarm_fnc=prewarm,
+        agent_name="Prashant"
+    ))
