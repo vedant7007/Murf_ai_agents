@@ -33,25 +33,27 @@ export const ChatEntry = ({
     <li
       title={title}
       data-lk-message-origin={messageOrigin}
-      className={cn('group flex w-full flex-col gap-0.5', className)}
+      className={cn('group flex w-full flex-col gap-1.5', className)}
       {...props}
     >
       <header
         className={cn(
-          'text-muted-foreground flex items-center gap-2 text-sm',
-          messageOrigin === 'local' ? 'flex-row-reverse' : 'text-left'
+          'flex items-center gap-2 text-sm',
+          messageOrigin === 'local' ? 'flex-row-reverse text-gray-400' : 'text-left text-gray-400'
         )}
       >
-        {name && <strong>{name}</strong>}
-        <span className="font-mono text-xs opacity-0 transition-opacity ease-linear group-hover:opacity-100">
+        {name && <strong className="text-white">{name}</strong>}
+        <span className="font-mono text-xs opacity-60 transition-opacity ease-linear group-hover:opacity-100">
           {hasBeenEdited && '*'}
           {time.toLocaleTimeString(locale, { timeStyle: 'short' })}
         </span>
       </header>
       <span
         className={cn(
-          'max-w-4/5 rounded-[20px]',
-          messageOrigin === 'local' ? 'bg-muted ml-auto p-2' : 'mr-auto'
+          'max-w-4/5 rounded-2xl px-4 py-3 text-base leading-relaxed',
+          messageOrigin === 'local'
+            ? 'bg-orange-500/20 border border-orange-500/30 ml-auto text-gray-100'
+            : 'bg-gray-800/60 border border-gray-700/50 mr-auto text-gray-200'
         )}
       >
         {message}

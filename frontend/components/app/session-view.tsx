@@ -70,7 +70,7 @@ export const SessionView = ({
   useDebugMode({ enabled: IN_DEVELOPMENT });
 
   const messages = useChatMessages();
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const controls: ControlBarControls = {
@@ -91,20 +91,40 @@ export const SessionView = ({
   }, [messages]);
 
   return (
-    <section className="bg-background relative z-10 h-full w-full overflow-hidden" {...props}>
+    <section className="bg-gradient-to-br from-gray-900 via-gray-800 to-black relative z-10 h-full w-full overflow-hidden" {...props}>
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 z-[60] bg-gray-900/95 backdrop-blur-md border-b border-gray-800/50">
+        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30">
+              <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 8C16.268 8 10 14.268 10 22C10 25.866 11.582 29.358 14.142 31.918L24 42L33.858 31.918C36.418 29.358 38 25.866 38 22C38 14.268 31.732 8 24 8ZM24 28C20.686 28 18 25.314 18 22C18 18.686 20.686 16 24 16C27.314 16 30 18.686 30 22C30 25.314 27.314 28 24 28Z" fill="white"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-lg">Swiggy Partnership</h3>
+              <p className="text-gray-400 text-xs">Talking with Alex</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-green-400 text-sm font-medium">Live</span>
+          </div>
+        </div>
+      </div>
+
       {/* Chat Transcript */}
       <div
         className={cn(
-          'fixed inset-0 grid grid-cols-1 grid-rows-1',
+          'fixed inset-0 grid grid-cols-1 grid-rows-1 z-10',
           !chatOpen && 'pointer-events-none'
         )}
       >
-        <Fade top className="absolute inset-x-4 top-0 h-40" />
-        <ScrollArea ref={scrollAreaRef} className="px-4 pt-40 pb-[150px] md:px-6 md:pb-[180px]">
+        <ScrollArea ref={scrollAreaRef} className="px-6 pt-24 pb-[180px] md:px-8 md:pt-28 md:pb-[200px]">
           <ChatTranscript
             hidden={!chatOpen}
             messages={messages}
-            className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out"
+            className="mx-auto max-w-2xl space-y-4 transition-opacity duration-300 ease-out mt-4"
           />
         </ScrollArea>
       </div>

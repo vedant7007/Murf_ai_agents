@@ -1,4 +1,8 @@
 import logging
+import json
+import os
+from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -12,42 +16,279 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
+from rag_handler import FAQRetriever
 
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+# Initialize FAQ retriever
+FAQ_FILE = Path(__file__).parent.parent / "data" / "company_faq.json"
+faq_retriever = FAQRetriever(str(FAQ_FILE))
 
-class Assistant(Agent):
+
+class SwiggySDRAssistant(Agent):
     def __init__(self) -> None:
+        # Initialize lead data storage
+        self.lead_data = {
+            "name": None,
+            "company": None,
+            "email": None,
+            "role": None,
+            "use_case": None,
+            "team_size": None,
+            "timeline": None,
+            "questions_asked": [],
+            "conversation_started": datetime.now().isoformat(),
+        }
+
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting including emojis, asterisks, or other weird symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=f"""You are Alex, a friendly and professional Sales Development Representative for Swiggy, India's leading food delivery and quick commerce platform.
+
+## Your Personality
+- Warm, enthusiastic, and genuinely helpful
+- Professional but conversational
+- Excited about helping businesses grow with Swiggy
+- You speak naturally like a real person, not a robot
+
+## Your Primary Goals
+1. Greet visitors warmly and ask what brought them here
+2. Understand their business and what they're working on
+3. Answer questions about Swiggy's products, pricing, and services using the FAQ knowledge base
+4. Qualify and capture lead information naturally during the conversation
+5. Never fabricate information - only use the provided FAQ content
+
+## Company Information
+{faq_retriever.get_company_info()}
+
+## Conversation Flow
+1. Start with a warm greeting: "Hi! I'm Alex from Swiggy. Thanks for your interest! What brought you here today?"
+2. Listen to their needs and ask: "Tell me a bit about your business - what are you currently working on?"
+3. Answer their questions using the search_faq tool
+4. Naturally collect their information using the capture_lead_info tool as the conversation progresses
+5. When they mention readiness to proceed or say they're done, use the complete_conversation tool
+
+## Important Guidelines
+- Keep responses to 1-3 sentences maximum
+- Ask ONE question at a time
+- Never use markdown, lists, code blocks, or special formatting
+- Spell out numbers and currency in words
+- Never mention that you're using tools or searching for information
+- Make the lead capture feel natural, not like a form
+- If you don't know something from the FAQ, be honest and offer to connect them with the right team
+- Focus on understanding their business needs before pitching
+
+## Lead Qualification
+Try to naturally gather:
+- Name and company name
+- Email address
+- Their role
+- Their business type and use case
+- Team size
+- Timeline for getting started (immediate, soon, or later)
+
+Remember: You're having a natural conversation, not conducting an interrogation. Weave these questions naturally into the discussion.""",
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    @function_tool
+    async def search_faq(self, context: RunContext, query: str):
+        """Search the Swiggy FAQ knowledge base to answer questions about products, pricing, and services.
+
+        Use this tool whenever the prospect asks about:
+        - What Swiggy offers
+        - Pricing and commission structure
+        - How to get started or onboarding process
+        - Technical details about partnership
+        - Any other questions about Swiggy's services
+
+        Args:
+            query: The question or topic to search for in the FAQ
+        """
+        logger.info(f"Searching FAQ for: {query}")
+
+        # Search for relevant FAQ entries
+        results = faq_retriever.search(query, top_k=2)
+
+        if not results:
+            return "I don't have specific information about that in my knowledge base. Let me connect you with our partnership team who can provide detailed information."
+
+        # Store question in lead data
+        self.lead_data["questions_asked"].append(query)
+
+        # Format the top result as a natural response
+        top_result = results[0]
+        response = top_result['answer']
+
+        # If there's a second relevant result, add brief additional info
+        if len(results) > 1 and results[1]['relevance_score'] > 0.3:
+            response += f" {results[1]['answer'][:100]}..."
+
+        return response
+
+    @function_tool
+    async def capture_lead_info(
+        self,
+        context: RunContext,
+        name: str = None,
+        company: str = None,
+        email: str = None,
+        role: str = None,
+        use_case: str = None,
+        team_size: str = None,
+        timeline: str = None
+    ):
+        """Capture prospect information during the conversation.
+
+        Use this tool to store lead information as you learn it naturally during the conversation.
+        Call this tool whenever the prospect shares any of these details.
+
+        Args:
+            name: Prospect's full name
+            company: Company or restaurant name
+            email: Email address
+            role: Their role (owner, manager, founder, etc.)
+            use_case: Type of business or what they do (restaurant, cloud kitchen, cafe, etc.)
+            team_size: Size of their team or number of employees
+            timeline: When they want to start (immediate, soon, later)
+        """
+        logger.info(f"Capturing lead info - Name: {name}, Company: {company}, Email: {email}")
+
+        # Update lead data with non-None values
+        if name:
+            self.lead_data["name"] = name
+        if company:
+            self.lead_data["company"] = company
+        if email:
+            self.lead_data["email"] = email
+        if role:
+            self.lead_data["role"] = role
+        if use_case:
+            self.lead_data["use_case"] = use_case
+        if team_size:
+            self.lead_data["team_size"] = team_size
+        if timeline:
+            self.lead_data["timeline"] = timeline
+
+        return "Information captured successfully."
+
+    @function_tool
+    async def complete_conversation(self, context: RunContext):
+        """Complete the conversation and generate a summary.
+
+        Use this tool when the prospect indicates they're done, satisfied, ready to proceed, or says goodbye.
+        Phrases like "that's all", "I'm done", "thanks", "I'll think about it" are completion signals.
+
+        This will generate a verbal summary of the prospect's profile and save the lead data.
+        """
+        logger.info("Completing conversation and generating summary")
+
+        # Save lead data to file
+        self._save_lead_data()
+
+        # Generate summary
+        summary = self._generate_summary()
+
+        return f"Here's a quick summary of our conversation: {summary} I've captured all your information and our partnership team will reach out to you soon. Thanks for your interest in Swiggy!"
+
+    def _save_lead_data(self):
+        """Save lead data to JSON file"""
+        try:
+            # Create leads directory if it doesn't exist
+            leads_dir = Path(__file__).parent.parent / "data" / "leads"
+            leads_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"lead_{timestamp}.json"
+            filepath = leads_dir / filename
+
+            # Add metadata
+            self.lead_data["conversation_ended"] = datetime.now().isoformat()
+            self.lead_data["lead_score"] = self._calculate_lead_score()
+
+            # Save to file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(self.lead_data, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"Lead data saved to {filepath}")
+
+        except Exception as e:
+            logger.error(f"Error saving lead data: {e}")
+
+    def _calculate_lead_score(self) -> str:
+        """Calculate lead qualification score"""
+        score = 0
+
+        # Check completeness
+        if self.lead_data.get("name"):
+            score += 1
+        if self.lead_data.get("email"):
+            score += 2
+        if self.lead_data.get("company"):
+            score += 1
+        if self.lead_data.get("use_case"):
+            score += 1
+
+        # Check timeline
+        timeline = self.lead_data.get("timeline", "").lower()
+        if "immediate" in timeline:
+            score += 2
+        elif "soon" in timeline:
+            score += 1
+
+        # Check engagement
+        if len(self.lead_data.get("questions_asked", [])) >= 3:
+            score += 1
+
+        # Classify
+        if score >= 6:
+            return "hot"
+        elif score >= 4:
+            return "warm"
+        else:
+            return "cold"
+
+    def _generate_summary(self) -> str:
+        """Generate a natural summary of the lead"""
+        parts = []
+
+        name = self.lead_data.get("name", "our prospect")
+        company = self.lead_data.get("company")
+        use_case = self.lead_data.get("use_case")
+        timeline = self.lead_data.get("timeline")
+        team_size = self.lead_data.get("team_size")
+
+        if company:
+            parts.append(f"You're {name} from {company}")
+        else:
+            parts.append(f"You're {name}")
+
+        if use_case:
+            parts.append(f"running a {use_case}")
+
+        if team_size:
+            parts.append(f"with a team of about {team_size}")
+
+        if timeline:
+            if "immediate" in timeline.lower():
+                parts.append("and you're looking to get started right away")
+            elif "soon" in timeline.lower():
+                parts.append("and you're planning to start soon")
+            else:
+                parts.append("and you're exploring options for later")
+
+        # Join parts naturally
+        if len(parts) <= 1:
+            return parts[0] if parts else "Thanks for chatting with us"
+
+        summary = " ".join(parts)
+        return summary
 
 
 def prewarm(proc: JobProcess):
@@ -123,7 +364,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=SwiggySDRAssistant(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results
