@@ -10,9 +10,10 @@ type ConnectionDetails = {
 };
 
 // NOTE: you are expected to define the following environment variables in `.env.local`:
-const API_KEY = process.env.LIVEKIT_API_KEY;
-const API_SECRET = process.env.LIVEKIT_API_SECRET;
-const LIVEKIT_URL = process.env.LIVEKIT_URL;
+// Fallback to local development values if not set
+const API_KEY = process.env.LIVEKIT_API_KEY || 'devkey';
+const API_SECRET = process.env.LIVEKIT_API_SECRET || 'secret';
+const LIVEKIT_URL = process.env.LIVEKIT_URL || 'ws://127.0.0.1:7880';
 
 // don't cache the results
 export const revalidate = 0;
