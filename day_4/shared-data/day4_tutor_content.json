@@ -1,0 +1,38 @@
+[
+  {
+    "id": "variables",
+    "title": "Variables in Programming",
+    "summary": "Variables are containers that store data values in programming. Think of them as labeled boxes where you can put information and retrieve it later. For example, you might create a variable called 'age' and store the number 25 in it. Variables make your code flexible and reusable because you can change the value without rewriting your entire program. Different programming languages have different rules for creating variables, but the core concept remains the same across all languages.",
+    "sample_question": "What is a variable in programming and why is it useful? Can you give an example of when you would use one?"
+  },
+  {
+    "id": "loops",
+    "title": "Loops in Programming",
+    "summary": "Loops allow you to repeat a set of instructions multiple times without writing the same code over and over. There are mainly two types: 'for loops' which run a specific number of times, and 'while loops' which run as long as a condition is true. For example, if you want to print numbers from 1 to 100, instead of writing 100 print statements, you can use a loop that counts from 1 to 100 and prints each number. Loops are essential for automating repetitive tasks and processing collections of data like lists or arrays.",
+    "sample_question": "Explain the difference between a for loop and a while loop. When would you use one over the other?"
+  },
+  {
+    "id": "functions",
+    "title": "Functions in Programming",
+    "summary": "Functions are reusable blocks of code that perform a specific task. They help organize your code and avoid repetition. A function takes inputs (called parameters), processes them, and can return an output. For example, you might create a function called 'calculate_area' that takes length and width as inputs and returns the area. Once defined, you can call this function whenever you need to calculate area, instead of writing the calculation code multiple times. Functions make code cleaner, easier to test, and more maintainable.",
+    "sample_question": "What is a function and what are its main benefits? Describe the difference between parameters and return values."
+  },
+  {
+    "id": "conditionals",
+    "title": "Conditional Statements",
+    "summary": "Conditional statements allow your program to make decisions and execute different code based on certain conditions. The most common conditional is the 'if-else' statement. For example, if a user's age is greater than 18, you might display 'Adult', otherwise display 'Minor'. Conditionals use comparison operators like equals, greater than, or less than to evaluate whether a condition is true or false. They're fundamental to creating programs that respond differently to different inputs or situations.",
+    "sample_question": "How do conditional statements work? Give an example of a real-world scenario where you would use an if-else statement."
+  },
+  {
+    "id": "data_types",
+    "title": "Data Types",
+    "summary": "Data types define what kind of value a variable can hold. Common data types include integers for whole numbers, floats for decimal numbers, strings for text, and booleans for true/false values. Each data type has specific operations you can perform on it. For example, you can add two integers together, but adding an integer to a string might cause an error or produce unexpected results. Understanding data types helps you write correct code and avoid bugs. Some languages are strictly typed (you must declare types), while others are dynamically typed (types are inferred).",
+    "sample_question": "What are data types and why are they important? Name at least three common data types and give examples of values for each."
+  },
+  {
+    "id": "arrays_lists",
+    "title": "Arrays and Lists",
+    "summary": "Arrays and lists are data structures that store multiple values in a single variable. Think of them as ordered collections where each item has a position (called an index). For example, you could create a list of student names or an array of test scores. You can access individual items by their index, add new items, remove items, or loop through all items. The difference between arrays and lists varies by language - arrays typically have fixed sizes while lists can grow dynamically. These structures are crucial for managing collections of related data.",
+    "sample_question": "What are arrays or lists used for in programming? How do you access individual elements, and what is an index?"
+  }
+]
